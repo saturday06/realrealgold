@@ -30,7 +30,7 @@ dependencies:
         $STACK setup $GHC_VERSION
       fi
       $STACK test --only-dependencies
-
+      rm Gemfile # disable ruby installation
 test:
   override:
     - |

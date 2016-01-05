@@ -1,0 +1,8 @@
+# TODO: 環境変数による指定
+database:
+  user:     "ubuntu"
+  password: ""
+  host:     "localhost"
+  port:     3306
+  database: "circle_test"
+  poolsize: 10

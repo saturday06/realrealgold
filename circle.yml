@@ -1,0 +1,44 @@
+machine:
+  environment:
+    GHC_VERSION: 7.10.3
+    MYSQL_DATABASE: circle_test
+    MYSQL_HOST: localhost
+    MYSQL_PASSWORD:
+    MYSQL_PORT: 3306
+    MYSQL_USER: ubuntu
+    STACK: ./stack/current/stack
+    STACK_VERSION: 1.0.0
+  java:
+    version: openjdk7
+
+dependencies:
+  cache_directories:
+    - "~/.stack"
+    - "stack"
+    - ".stack-work"
+
+  override:
+    - |
+      rm -f stack/current
+      mkdir -p stack/$STACK_VERSION
+      ln -s $PWD/stack/$STACK_VERSION $PWD/stack/current
+      if [ ! -f $STACK ]; then
+        curl -L https://github.com/commercialhaskell/stack/releases/download/v$STACK_VERSION/stack-$STACK_VERSION-linux-x86_64.tar.gz -o stack.tar.gz
+        tar xf stack.tar.gz --strip 1 -C stack/current
+      fi
+      if [ "`$STACK ghc -- --numeric-version`" != "$GHC_VERSION" ]; then
+        $STACK setup $GHC_VERSION
+      fi
+      $STACK test --only-dependencies
+
+test:
+  override:
+    - |
+      cp config/circleci-settings.yml config/test-settings.yml
+      $STACK test
+
+deployment:
+  production:
+    branch: master
+    heroku:
+      appname: realrealgold

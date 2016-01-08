@@ -88,10 +88,14 @@ fi
 if [ -s "$STACK_YAML" ]; then
   stackw_yaml=$STACK_YAML
 else
-  stackw_yaml=stack.yaml
+  stackw_yaml=$PWD/stack.yaml
 fi
 
-stackw_version=`cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//'`
+stackw_version=`(cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//') 2> /dev/null`
+if [ -z "$stackw_version" ]; then
+  stackw_error_exit "No version information in \`$stackw_yaml'"
+  exit 1
+fi
 
 case "$uname_s" in
   Linux)
@@ -182,18 +186,27 @@ if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
   touch $stackw_extract_dir/$stackw_basename.done
 fi
 
-if [ "$*" = "upgrade" ]; then
+if [ "$1" = "stackw-upgrade" ]; then
   stackw_new_script=$stackw_download_dir/stackw.$$
   stackw_script_url=https://raw.githubusercontent.com/saturday06/stackw/stable/stackw
   for stackw_script_ext in "" .bat; do
     if ! stackw_download $stackw_script_url$stackw_script_ext $stackw_new_script$stackw_script_ext; then
       stackw_error_exit "failed to extract \`$stackw_script_url$stackw_script_ext'"
     fi
-    chmod u+x $stackw_new_script$stackw_script_ext
-    if ! mv -f $stackw_new_script$stackw_script_ext $0$stackw_script_ext; then
-      stackw_error_exit "failed to move \`$stackw_new_script$stackw_script_ext' to \`$0$stackw_script_ext'"
+    stack_script=$0$stackw_script_ext
+    if cmp $stackw_new_script$stackw_script_ext $stack_script > /dev/null; then
+      echo "\`$stack_script' is already up to date"
+      rm -f $stackw_new_script$stackw_script_ext
+    else
+      chmod u+x $stackw_new_script$stackw_script_ext
+      if ! mv -f $stackw_new_script$stackw_script_ext $stack_script; then
+        rm -f $stackw_new_script$stackw_script_ext
+        stackw_error_exit "failed to move \`$stackw_new_script$stackw_script_ext' to \`$stack_script'"
+      fi
+      echo "\`$stack_script' upgraded"
     fi
   done
+  exit 0
 fi
 
 exec $stackw_program "$@"

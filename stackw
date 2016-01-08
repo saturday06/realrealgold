@@ -33,7 +33,7 @@ stackw_download() {
   fi
 }
 
-stackw_parse_stack_yaml_option() (
+stackw_parse_stack_yaml_option() {
   while [ "$1" != "" ]; do
     if [ "$1" = "--stack-yaml" ]; then
       if [ -z "$2" ]; then
@@ -45,7 +45,7 @@ stackw_parse_stack_yaml_option() (
     shift
   done
   return 0
-)
+}
 
 stackw_find_ancestor_dir_stack_yaml() (
   while [ `pwd` != "/" ]; do
@@ -135,7 +135,12 @@ fi
 
 case "$uname_s" in
   Linux)
-    if ldconfig --print-cache | awk '{print $1}' | $STACKW_EGREP "libgmp\.so\.3" 2> /dev/null > /dev/null; then
+    stackw_egrep_ldconfig() {
+      ldconfig --print-cache | $STACKW_NAWK '{print $1}' | $STACKW_EGREP "$1" 2> /dev/null > /dev/null
+    }
+    if stackw_egrep_ldconfig "^libgmp\.so\.10$"; then
+      stackw_linux_gmp=
+    elif stackw_egrep_ldconfig "^libgmp\.so\.3$"; then
       stackw_linux_gmp=-gmp4
     fi
     case "$uname_m" in

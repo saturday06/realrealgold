@@ -190,8 +190,8 @@ if [ "$*" = "upgrade" ]; then
       stackw_error_exit "failed to extract \`$stackw_script_url$stackw_script_ext'"
     fi
     chmod u+x $stackw_new_script$stackw_script_ext
-    if ! mv -f $stackw_new_script$stackw_script_ext $stackw_program$stackw_script_ext; then
-      stackw_error_exit "failed to move \`$stackw_new_script$stackw_script_ext' to \`$stackw_program$stackw_script_ext'"
+    if ! mv -f $stackw_new_script$stackw_script_ext $0$stackw_script_ext; then
+      stackw_error_exit "failed to move \`$stackw_new_script$stackw_script_ext' to \`$0$stackw_script_ext'"
     fi
   done
 fi

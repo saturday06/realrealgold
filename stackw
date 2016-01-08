@@ -8,56 +8,192 @@
 
 uname_s=`uname -s`
 uname_m=`uname -m`
-stack_version=`cat stack.yaml | grep "^# stack version:" | sed 's/^# stack version: *//'`
-stack_base_url="https://github.com/commercialhaskell/stack/releases/download"
-stack_base_dir=$HOME/.stack/wrapper
-stack_download_dir=$stack_base_dir/cache
-stack_extract_dir=$stack_base_dir/extract
+stackw_base_url="https://github.com/commercialhaskell/stack/releases/download"
+stackw_base_dir=$HOME/.stack/wrapper
+stackw_download_dir=$stackw_base_dir/cache
+stackw_extract_dir=$stackw_base_dir/extract
+
+if [ -s "$STACK_YAML" ]; then
+  stackw_yaml=$STACK_YAML
+else
+  stackw_yaml=stack.yaml
+fi
+
+stackw_version=`cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//'`
+
+stackw_error_exit() {
+  echo Error: $* >&2
+  exit 1
+}
+
+stackw_has_command() {
+  which $1 > /dev/null 2> /dev/null
+}
+
+stackw_download() {
+  rm -f $2
+  if stackw_has_command wget; then
+    wget --output-document=$2 $1
+  elif stackw_has_command curl; then
+    curl --location --fail --output $2 $1
+  else
+    stackw_error_exit "\`curl' or \`wget' required"
+  fi
+}
+
+stackw_right_is_greater() (
+  $STACKW_NAWK '
+    function compare_version(left, right,    i, left_values_length, right_values_length) {
+      left_values_length = split(left, left_values, ".")
+      right_values_length = split(right, right_values, ".")
+      for (i = 1; ; i++) {
+        if (left_values_length < i && right_values_length < i) {
+          return 0
+        } else if (left_values_length < i) {
+          return -1
+        } else if (right_values_length < i) {
+          return 1
+        } else if (left_values[i] + 0 < right_values[i] + 0) {
+          return -1
+        } else if (left_values[i] + 0 > right_values[i] + 0) {
+          return 1
+        }
+      }
+    }
+    BEGIN {
+      if (compare_version(ARGV[1], ARGV[2]) < 0) {
+        exit 0
+      } else {
+        exit 1
+      }
+    }' $*
+)
+
+if [ -z "$STACKW_EGREP" ]; then
+  if echo "foo" | grep -E "^foo?$" > /dev/null 2> /dev/null; then
+    STACKW_GREP_E() (
+      grep -E "$@"
+    )
+    STACKW_EGREP=STACKW_GREP_E
+  elif stackw_has_command egrep; then
+    STACKW_EGREP=egrep
+  else
+    stackw_error_exit "\`grep -E' or \`egrep' required"
+  fi
+fi
+
+if [ -z "$STACKW_NAWK" ]; then
+  if awk 'BEGIN{sub(/foo/, "")}' 2> /dev/null; then
+    STACKW_NAWK=awk
+  elif stackw_has_command nawk; then
+    STACKW_NAWK=nawk
+  else
+    echo "error: \`nawk' required"
+    exit 1
+  fi
+fi
 
 case "$uname_s" in
   Linux)
-    if ldconfig --print-cache | awk '{print $1}' | grep "libgmp.so.3" 2> /dev/null > /dev/null; then
-      stack_gmp=-gmp4
-    else
-      stack_gmp=
+    if ldconfig --print-cache | awk '{print $1}' | $STACKW_EGREP "libgmp\.so\.3" 2> /dev/null > /dev/null; then
+      stackw_linux_gmp=-gmp4
     fi
     case "$uname_m" in
       x86_64)
-        stack_machine=x86_64
+        stackw_machine=x86_64
       ;;
       i*86)
-        stack_machine=i386
+        stackw_machine=i386
       ;;
       *)
-        echo "Unsupported machine: $uname_m" 1>&2
-        exit 1
+        stackw_error_exit "unsupported machine \`$uname_m'"
       ;;
     esac
-    stack_basename="stack-${stack_version}-linux-${stack_machine}${stack_gmp}"
+    stackw_system=linux
   ;;
   Darwin)
-    stack_basename="stack-${stack_version}-osx-x86_64"
+    stackw_machine=x86_64
+    stackw_system=osx
   ;;
   *)
-    echo "Unsupported system: $uname_s" 1>&2
-    exit 1
+    stackw_error_exit "unsupported system \`$uname_s'"
   ;;
 esac
 
-if [ ! -f "$stack_extract_dir/${stack_basename}.done" ]; then
-  stack_url="${stack_base_url}/v${stack_version}/${stack_basename}.tar.gz"
-  mkdir -p $stack_download_dir
-  stack_download_file="$stack_download_dir/${stack_basename}.tar.gz"
-  if ! curl --location --fail --output $stack_download_file $stack_url; then
-    echo "Not found: $stack_url"
-    exit 1
-  fi
-  mkdir -p $stack_extract_dir
-  if ! (cd $stack_extract_dir && tar xf $stack_download_file); then
-    echo "Failed to extract: $stack_download_file"
-    exit 1
-  fi
-  touch $stack_extract_dir/${stack_basename}.done
+stackw_single_archive=false
+if stackw_right_is_greater $stackw_version 0.1.2.0; then
+  stackw_ext=.gz
+  stackw_basename="stack-$stackw_version-$stackw_machine-$stackw_system"
+  stackw_single_archive=true
+elif stackw_right_is_greater $stackw_version 0.1.4.0; then
+  stackw_ext=.gz
+  stackw_basename="stack-$stackw_version-$stackw_machine-$stackw_system$stackw_linux_gmp"
+  stackw_single_archive=true
+elif stackw_right_is_greater $stackw_version 0.1.5.0; then
+  stackw_ext=.tar.gz
+  stackw_basename="stack-$stackw_version-$stackw_machine-$stackw_system$stackw_linux_gmp"
+  stackw_single_archive=true
+elif stackw_right_is_greater $stackw_version 0.1.6.0; then
+  stackw_ext=.tar.gz
+  stackw_basename="stack-$stackw_version-$stackw_machine-$stackw_system$stackw_linux_gmp"
+else
+  stackw_ext=.tar.gz
+  stackw_basename="stack-$stackw_version-$stackw_system-$stackw_machine$stackw_linux_gmp"
 fi
 
-exec $stack_extract_dir/${stack_basename}/stack "$@"
+stackw_program=$stackw_extract_dir/$stackw_basename/stack
+
+if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
+  stackw_url="$stackw_base_url/v$stackw_version/$stackw_basename$stackw_ext"
+  mkdir -p $stackw_download_dir
+  stackw_download_file="$stackw_download_dir/$stackw_basename$stackw_ext"
+  if ! stackw_download $stackw_url $stackw_download_file; then
+    stackw_error_exit "not found \`$stackw_url'"
+  fi
+  mkdir -p $stackw_extract_dir
+  if $stackw_single_archive; then
+    mkdir -p $stackw_extract_dir/$stackw_basename
+    if [ "$stackw_ext" = ".gz" ]; then
+      if ! gzip -cd $stackw_download_file > $stackw_extract_dir/$stackw_basename/stack; then
+        stackw_error_exit "failed to extract \`$stackw_download_file'"
+      fi
+    elif [ "$stackw_ext" = ".tar.gz" ]; then
+      if ! (cd $stackw_extract_dir/$stackw_basename && (gzip -cd $stackw_download_file | tar xf -)); then
+        stackw_error_exit "failed to extract \`$stackw_download_file'"
+      fi
+    else
+      stackw_error_exit "unknown extension \`$stackw_ext'"
+    fi
+    chmod u+x $stackw_program
+  else
+    if [ "$stackw_ext" = ".tar.gz" ]; then
+      stackw_extract() (gzip -cd "$@")
+    elif [ "$stackw_ext" = ".tar.bz2" ]; then
+      stackw_extract() (bzip2 -cd "$@")
+    elif [ "$stackw_ext" = ".tar.xz" ]; then
+      stackw_extract() (xz -cd "$@")
+    else
+      stackw_error_exit "unknown extension \`$stackw_ext'"
+    fi
+    if ! (cd $stackw_extract_dir && (stackw_extract $stackw_download_file | tar xf -)); then
+      stackw_error_exit "failed to extract \`$stackw_download_file'"
+    fi
+  fi
+  touch $stackw_extract_dir/$stackw_basename.done
+fi
+
+if [ "$*" = "upgrade" ]; then
+  stackw_new_script=$stackw_download_dir/stackw.$$
+  stackw_script_url=https://raw.githubusercontent.com/saturday06/stackw/stable/stackw
+  for stackw_script_ext in "" .bat; do
+    if ! stackw_download $stackw_script_url$stackw_script_ext $stackw_new_script$stackw_script_ext; then
+      stackw_error_exit "failed to extract \`$stackw_script_url$stackw_script_ext'"
+    fi
+    chmod u+x $stackw_new_script$stackw_script_ext
+    if ! mv -f $stackw_new_script$stackw_script_ext $stackw_program$stackw_script_ext; then
+      stackw_error_exit "failed to move \`$stackw_new_script$stackw_script_ext' to \`$stackw_program$stackw_script_ext'"
+    fi
+  done
+fi
+
+exec $stackw_program "$@"

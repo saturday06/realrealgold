@@ -33,6 +33,31 @@ stackw_download() {
   fi
 }
 
+stackw_parse_stack_yaml_option() (
+  while [ "$1" != "" ]; do
+    if [ "$1" = "--stack-yaml" ]; then
+      if [ -z "$2" ]; then
+        stackw_error_exit "\`--stack-yaml' option requires argument"
+      fi
+      echo $2
+      return 0
+    fi
+    shift
+  done
+  return 0
+)
+
+stackw_find_ancestor_dir_stack_yaml() (
+  while [ `pwd` != "/" ]; do
+    if [ -f stack.yaml ]; then
+      echo `pwd`/stack.yaml
+      return 0
+    fi
+    cd ..
+  done
+  return 0
+)
+
 stackw_right_is_greater() (
   $STACKW_NAWK '
     function compare_version(left, right,    i, left_values_length, right_values_length) {
@@ -80,15 +105,26 @@ if [ -z "$STACKW_NAWK" ]; then
   elif stackw_has_command nawk; then
     STACKW_NAWK=nawk
   else
-    echo "error: \`nawk' required"
-    exit 1
+    stackw_error_exit "\`gawk' or \`nawk' required"
   fi
 fi
 
-if [ -s "$STACK_YAML" ]; then
+stackw_yaml=`stackw_parse_stack_yaml_option "$@"`
+if [ $? -eq 1 ]; then
+  exit 1
+fi
+if [ -z "$stackw_yaml" ]; then
   stackw_yaml=$STACK_YAML
-else
-  stackw_yaml=$PWD/stack.yaml
+fi
+if [ -z "$stackw_yaml" ]; then
+  stackw_yaml=`stackw_find_ancestor_dir_stack_yaml`
+fi
+if [ -z "$stackw_yaml" ]; then
+  stackw_error_exit "Configuration file \`stack.yaml' not found"
+fi
+
+if [ ! -f "$stackw_yaml" ]; then
+  stackw_error_exit "Configuration file \`$stackw_yaml' not found"
 fi
 
 stackw_version=`(cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//') 2> /dev/null`
@@ -110,7 +146,7 @@ case "$uname_s" in
         stackw_machine=i386
       ;;
       *)
-        stackw_error_exit "unsupported machine \`$uname_m'"
+        stackw_error_exit "Unsupported machine \`$uname_m'"
       ;;
     esac
     stackw_system=linux
@@ -120,7 +156,7 @@ case "$uname_s" in
     stackw_system=osx
   ;;
   *)
-    stackw_error_exit "unsupported system \`$uname_s'"
+    stackw_error_exit "Unsupported system \`$uname_s'"
   ;;
 esac
 
@@ -152,21 +188,21 @@ if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
   mkdir -p $stackw_download_dir
   stackw_download_file="$stackw_download_dir/$stackw_basename$stackw_ext"
   if ! stackw_download $stackw_url $stackw_download_file; then
-    stackw_error_exit "not found \`$stackw_url'"
+    stackw_error_exit "Not found \`$stackw_url'"
   fi
   mkdir -p $stackw_extract_dir
   if $stackw_single_archive; then
     mkdir -p $stackw_extract_dir/$stackw_basename
     if [ "$stackw_ext" = ".gz" ]; then
       if ! gzip -cd $stackw_download_file > $stackw_extract_dir/$stackw_basename/stack; then
-        stackw_error_exit "failed to extract \`$stackw_download_file'"
+        stackw_error_exit "Failed to extract \`$stackw_download_file'"
       fi
     elif [ "$stackw_ext" = ".tar.gz" ]; then
       if ! (cd $stackw_extract_dir/$stackw_basename && (gzip -cd $stackw_download_file | tar xf -)); then
-        stackw_error_exit "failed to extract \`$stackw_download_file'"
+        stackw_error_exit "Failed to extract \`$stackw_download_file'"
       fi
     else
-      stackw_error_exit "unknown extension \`$stackw_ext'"
+      stackw_error_exit "Unknown extension \`$stackw_ext'"
     fi
     chmod u+x $stackw_program
   else
@@ -177,10 +213,10 @@ if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
     elif [ "$stackw_ext" = ".tar.xz" ]; then
       stackw_extract() (xz -cd "$@")
     else
-      stackw_error_exit "unknown extension \`$stackw_ext'"
+      stackw_error_exit "Unknown extension \`$stackw_ext'"
     fi
     if ! (cd $stackw_extract_dir && (stackw_extract $stackw_download_file | tar xf -)); then
-      stackw_error_exit "failed to extract \`$stackw_download_file'"
+      stackw_error_exit "Failed to extract \`$stackw_download_file'"
     fi
   fi
   touch $stackw_extract_dir/$stackw_basename.done
@@ -191,7 +227,7 @@ if [ "$1" = "stackw-upgrade" ]; then
   stackw_script_url=https://raw.githubusercontent.com/saturday06/stackw/stable/stackw
   for stackw_script_ext in "" .bat; do
     if ! stackw_download $stackw_script_url$stackw_script_ext $stackw_new_script$stackw_script_ext; then
-      stackw_error_exit "failed to extract \`$stackw_script_url$stackw_script_ext'"
+      stackw_error_exit "Failed to extract \`$stackw_script_url$stackw_script_ext'"
     fi
     stack_script=$0$stackw_script_ext
     if cmp $stackw_new_script$stackw_script_ext $stack_script > /dev/null; then
@@ -201,7 +237,7 @@ if [ "$1" = "stackw-upgrade" ]; then
       chmod u+x $stackw_new_script$stackw_script_ext
       if ! mv -f $stackw_new_script$stackw_script_ext $stack_script; then
         rm -f $stackw_new_script$stackw_script_ext
-        stackw_error_exit "failed to move \`$stackw_new_script$stackw_script_ext' to \`$stack_script'"
+        stackw_error_exit "Failed to move \`$stackw_new_script$stackw_script_ext' to \`$stack_script'"
       fi
       echo "\`$stack_script' upgraded"
     fi

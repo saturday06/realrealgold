@@ -6,6 +6,8 @@
 # There's great documentation for writing shell script that runs anyware.
 # https://www.gnu.org/savannah-checkouts/gnu/autoconf/manual/autoconf-2.69/html_node/Portable-Shell.html#Portable-Shell
 
+stackw_default_stack_version=1.0.0
+
 uname_s=`uname -s`
 uname_m=`uname -m`
 stackw_base_url="https://github.com/commercialhaskell/stack/releases/download"
@@ -48,11 +50,13 @@ stackw_parse_stack_yaml_option() {
 }
 
 stackw_find_ancestor_dir_stack_yaml() (
-  while [ `pwd` != "/" ]; do
+  old_pwd=`pwd`/x
+  while [ `pwd` != "$old_pwd" ]; do
     if [ -f stack.yaml ]; then
       echo `pwd`/stack.yaml
       return 0
     fi
+    old_pwd=`pwd`
     cd ..
   done
   return 0
@@ -129,9 +133,20 @@ fi
 
 stackw_version=`(cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//') 2> /dev/null`
 if [ -z "$stackw_version" ]; then
-  stackw_error_exit "No version information in \`$stackw_yaml'"
-  exit 1
+  stackw_version=$stackw_default_stack_version
 fi
+
+case "$uname_m" in
+  x86_64)
+    stackw_machine=x86_64
+  ;;
+  i*86)
+    stackw_machine=i386
+  ;;
+  *)
+    stackw_error_exit "Unsupported machine \`$uname_m'"
+  ;;
+esac
 
 case "$uname_s" in
   Linux)
@@ -143,22 +158,13 @@ case "$uname_s" in
     elif stackw_egrep_ldconfig "^libgmp\.so\.3$"; then
       stackw_linux_gmp=-gmp4
     fi
-    case "$uname_m" in
-      x86_64)
-        stackw_machine=x86_64
-      ;;
-      i*86)
-        stackw_machine=i386
-      ;;
-      *)
-        stackw_error_exit "Unsupported machine \`$uname_m'"
-      ;;
-    esac
     stackw_system=linux
   ;;
   Darwin)
-    stackw_machine=x86_64
     stackw_system=osx
+  ;;
+  CYGWIN*|MINGW*|MSYS*)
+    stackw_system=windows
   ;;
   *)
     stackw_error_exit "Unsupported system \`$uname_s'"
@@ -186,7 +192,13 @@ else
   stackw_basename="stack-$stackw_version-$stackw_system-$stackw_machine$stackw_linux_gmp"
 fi
 
-stackw_program=$stackw_extract_dir/$stackw_basename/stack
+if [ "$stackw_system" = "windows" ]; then
+  stackw_single_archive=false
+  stackw_ext=.zip
+  stackw_exeext=.exe
+fi
+
+stackw_program=$stackw_extract_dir/$stackw_basename/stack$stackw_exeext
 
 if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
   stackw_url="$stackw_base_url/v$stackw_version/$stackw_basename$stackw_ext"
@@ -209,7 +221,11 @@ if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
     else
       stackw_error_exit "Unknown extension \`$stackw_ext'"
     fi
-    chmod u+x $stackw_program
+  elif [ "$stackw_ext" = ".zip" ]; then
+    mkdir -p $stackw_extract_dir/$stackw_basename
+    if ! (cd $stackw_extract_dir/$stackw_basename && unzip $stackw_download_file); then
+      stackw_error_exit "Failed to extract \`$stackw_download_file'"
+    fi
   else
     if [ "$stackw_ext" = ".tar.gz" ]; then
       stackw_extract() (gzip -cd "$@")
@@ -223,6 +239,14 @@ if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
     if ! (cd $stackw_extract_dir && (stackw_extract $stackw_download_file | tar xf -)); then
       stackw_error_exit "Failed to extract \`$stackw_download_file'"
     fi
+  fi
+  if [ -f $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext ]; then
+    if ! mv $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext $stackw_program; then
+      stackw_error_exit "Failed to setup \`$stackw_program'"
+    fi
+  fi
+  if ! chmod u+x $stackw_program; then
+    stackw_error_exit "Failed access \`$stackw_program'"
   fi
   touch $stackw_extract_dir/$stackw_basename.done
 fi

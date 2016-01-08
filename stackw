@@ -13,14 +13,6 @@ stackw_base_dir=$HOME/.stack/wrapper
 stackw_download_dir=$stackw_base_dir/cache
 stackw_extract_dir=$stackw_base_dir/extract
 
-if [ -s "$STACK_YAML" ]; then
-  stackw_yaml=$STACK_YAML
-else
-  stackw_yaml=stack.yaml
-fi
-
-stackw_version=`cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//'`
-
 stackw_error_exit() {
   echo Error: $* >&2
   exit 1
@@ -92,6 +84,14 @@ if [ -z "$STACKW_NAWK" ]; then
     exit 1
   fi
 fi
+
+if [ -s "$STACK_YAML" ]; then
+  stackw_yaml=$STACK_YAML
+else
+  stackw_yaml=stack.yaml
+fi
+
+stackw_version=`cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//'`
 
 case "$uname_s" in
   Linux)

@@ -1,0 +1,63 @@
+#!/bin/sh
+# -*- mode: shellscript -*-
+#
+# stack wrapper
+#
+# There's great documentation for writing shell script that runs anyware.
+# https://www.gnu.org/savannah-checkouts/gnu/autoconf/manual/autoconf-2.69/html_node/Portable-Shell.html#Portable-Shell
+
+uname_s=`uname -s`
+uname_m=`uname -m`
+stack_version=`cat stack.yaml | grep "^# stack version:" | sed 's/^# stack version: *//'`
+stack_base_url="https://github.com/commercialhaskell/stack/releases/download"
+stack_base_dir=$HOME/.stack/wrapper
+stack_download_dir=$stack_base_dir/cache
+stack_extract_dir=$stack_base_dir/extract
+
+case "$uname_s" in
+  Linux)
+    if ldconfig --print-cache | awk '{print $1}' | grep "libgmp.so.3" 2> /dev/null > /dev/null; then
+      stack_gmp=-gmp4
+    else
+      stack_gmp=
+    fi
+    case "$uname_m" in
+      x86_64)
+        stack_machine=x86_64
+      ;;
+      i*86)
+        stack_machine=i386
+      ;;
+      *)
+        echo "Unsupported machine: $uname_m" 1>&2
+        exit 1
+      ;;
+    esac
+    stack_basename="stack-${stack_version}-linux-${stack_machine}${stack_gmp}"
+  ;;
+  Darwin)
+    stack_basename="stack-${stack_version}-osx-x86_64"
+  ;;
+  *)
+    echo "Unsupported system: $uname_s" 1>&2
+    exit 1
+  ;;
+esac
+
+if [ ! -f "$stack_extract_dir/${stack_basename}.done" ]; then
+  stack_url="${stack_base_url}/v${stack_version}/${stack_basename}.tar.gz"
+  mkdir -p $stack_download_dir
+  stack_download_file="$stack_download_dir/${stack_basename}.tar.gz"
+  if ! curl --location --fail --output $stack_download_file $stack_url; then
+    echo "Not found: $stack_url"
+    exit 1
+  fi
+  mkdir -p $stack_extract_dir
+  if ! (cd $stack_extract_dir && tar xf $stack_download_file); then
+    echo "Failed to extract: $stack_download_file"
+    exit 1
+  fi
+  touch $stack_extract_dir/${stack_basename}.done
+fi
+
+exec $stack_extract_dir/${stack_basename}/stack "$@"

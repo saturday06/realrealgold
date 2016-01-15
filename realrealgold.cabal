@@ -1,6 +1,6 @@
 name:              realrealgold
 version:           0.0.0
-cabal-version:     >= 1.22
+cabal-version:     >= 1.8
 build-type:        Simple
 
 Flag dev
@@ -13,7 +13,6 @@ Flag library-only
 
 library
     hs-source-dirs: ., app
-    default-language: Haskell2010
     exposed-modules: Application
                      Foundation
                      Import
@@ -23,6 +22,7 @@ library
                      Settings.StaticFiles
                      Handler.Common
                      Handler.Home
+                     Handler.Comment
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
@@ -30,11 +30,10 @@ library
     else
         ghc-options:   -Wall -fwarn-tabs -O2
 
-    default-extensions: TemplateHaskell
+    extensions: TemplateHaskell
                 QuasiQuotes
                 OverloadedStrings
                 NoImplicitPrelude
-                CPP
                 MultiParamTypeClasses
                 TypeFamilies
                 GADTs
@@ -49,40 +48,43 @@ library
                 RecordWildCards
 
     build-depends: base
-                 , yesod
-                 , yesod-core
-                 , yesod-auth
-                 , yesod-static
-                 , yesod-form
+                 , aeson
+                 , bytestring
+                 , case-insensitive
                  , classy-prelude
                  , classy-prelude-conduit
                  , classy-prelude-yesod
-                 , bytestring
-                 , text
+                 , conduit
+                 , containers
+                 , data-default
+                 , directory
+                 , fast-logger
+                 , file-embed
+                 , hjsmin
+                 , http-conduit
+                 , monad-control
+                 , monad-logger
+                 , mysql
                  , persistent
                  , persistent-mysql
                  , persistent-template
-                 , template-haskell
-                 , shakespeare
-                 , hjsmin
-                 , monad-control
-                 , wai-extra
-                 , yaml
-                 , http-conduit
-                 , directory
-                 , warp
-                 , data-default
-                 , aeson
-                 , conduit
-                 , monad-logger
-                 , fast-logger
-                 , wai-logger
-                 , file-embed
                  , safe
-                 , unordered-containers
-                 , containers
-                 , vector
+                 , shakespeare
+                 , template-haskell
+                 , text
                  , time
+                 , unordered-containers
+                 , vector
+                 , wai
+                 , wai-extra
+                 , wai-logger
+                 , warp
+                 , yaml
+                 , yesod
+                 , yesod-auth
+                 , yesod-core
+                 , yesod-form
+                 , yesod-static
 
 executable         realrealgold
     if flag(library-only)
@@ -91,17 +93,16 @@ executable         realrealgold
     main-is:           main.hs
     hs-source-dirs:    app
     build-depends:     base, realrealgold
-    default-language: Haskell2010
-    ghc-options:       -threaded -O2 -rtsopts -with-rtsopts=-N
+
+    ghc-options:       -threaded -rtsopts -with-rtsopts=-N
 
 test-suite test
     type:              exitcode-stdio-1.0
     main-is:           Spec.hs
     hs-source-dirs:    test
-    default-language: Haskell2010
     ghc-options:       -Wall
 
-    default-extensions: TemplateHaskell
+    extensions: TemplateHaskell
                 QuasiQuotes
                 OverloadedStrings
                 NoImplicitPrelude
@@ -119,53 +120,17 @@ test-suite test
                 TupleSections
 
     build-depends: realrealgold
+                 , aeson
                  , base
-                 , yesod-test
-                 , yesod-core
-                 , yesod
+                 , classy-prelude
+                 , classy-prelude-yesod
+                 , hspec >= 2.0.0
+                 , monad-logger
                  , persistent
                  , persistent-mysql
                  , resourcet
-                 , monad-logger
                  , shakespeare
                  , transformers
-                 , hspec
-                 , hspec-discover
-                 , classy-prelude
-                 , classy-prelude-yesod
-                 , QuickCheck
-                 --- for guard-haskell gem
-                 , aeson
-                 , bytestring
-                 , classy-prelude
-                 , classy-prelude-conduit
-                 , classy-prelude-yesod
-                 , conduit
-                 , containers
-                 , data-default
-                 , directory
-                 , fast-logger
-                 , file-embed
-                 , hjsmin
-                 , http-conduit
-                 , monad-control
-                 , monad-logger
-                 , persistent
-                 , persistent-mysql
-                 , persistent-template
-                 , safe
-                 , shakespeare
-                 , template-haskell
-                 , text
-                 , time
-                 , unordered-containers
-                 , vector
-                 , wai-extra
-                 , wai-logger
-                 , warp
-                 , yaml
                  , yesod
-                 , yesod-static
-                 , yesod-auth
                  , yesod-core
-                 , yesod-form
+                 , yesod-test

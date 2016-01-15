@@ -13,9 +13,9 @@ stackw_uname_s=`uname -s`
 stackw_uname_m=`uname -m`
 stackw_base_url="https://github.com/commercialhaskell/stack/releases/download"
 stackw_base_dir=$HOME/.stack/wrapper
-stackw_download_dir=$stackw_base_dir/cache
-stackw_extract_dir=$stackw_base_dir/extract
-stackw_script_url="https://raw.githubusercontent.com/saturday06/stackw/stable/stackw"
+stackw_programs_dir=$stackw_base_dir/programs
+stackw_tmp_dir=$stackw_base_dir/tmp
+stackw_script_base_url="https://raw.githubusercontent.com/saturday06/stackw/stable"
 
 stackw_error_exit() {
   echo Error: $* >&2
@@ -442,68 +442,19 @@ if [ "$stackw_system" = "windows" ]; then
   stackw_exeext=.exe
 fi
 
-stackw_program=$stackw_extract_dir/$stackw_basename/stack$stackw_exeext
-
-if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
-  stackw_url="$stackw_base_url/v$stackw_version/$stackw_basename$stackw_ext"
-  mkdir -p $stackw_download_dir
-  stackw_download_file="$stackw_download_dir/$stackw_basename$stackw_ext"
-  if ! stackw_download $stackw_url $stackw_download_file; then
-    stackw_error_exit "Not found \`$stackw_url'"
-  fi
-  mkdir -p $stackw_extract_dir
-  if $stackw_single_archive; then
-    mkdir -p $stackw_extract_dir/$stackw_basename
-    if [ "$stackw_ext" = ".gz" ]; then
-      if ! gzip -cd $stackw_download_file > $stackw_extract_dir/$stackw_basename/stack; then
-        stackw_error_exit "Failed to extract \`$stackw_download_file'"
-      fi
-    elif [ "$stackw_ext" = ".tar.gz" ]; then
-      if ! (cd $stackw_extract_dir/$stackw_basename && (gzip -cd $stackw_download_file | tar xf -)); then
-        stackw_error_exit "Failed to extract \`$stackw_download_file'"
-      fi
-    else
-      stackw_error_exit "Unknown extension \`$stackw_ext'"
-    fi
-  elif [ "$stackw_ext" = ".zip" ]; then
-    mkdir -p $stackw_extract_dir/$stackw_basename
-    if ! (cd $stackw_extract_dir/$stackw_basename && unzip $stackw_download_file); then
-      stackw_error_exit "Failed to extract \`$stackw_download_file'"
-    fi
-  else
-    if [ "$stackw_ext" = ".tar.gz" ]; then
-      stackw_extract() (gzip -cd "$@")
-    elif [ "$stackw_ext" = ".tar.bz2" ]; then
-      stackw_extract() (bzip2 -cd "$@")
-    elif [ "$stackw_ext" = ".tar.xz" ]; then
-      stackw_extract() (xz -cd "$@")
-    else
-      stackw_error_exit "Unknown extension \`$stackw_ext'"
-    fi
-    if ! (cd $stackw_extract_dir && (stackw_extract $stackw_download_file | tar xf -)); then
-      stackw_error_exit "Failed to extract \`$stackw_download_file'"
-    fi
-  fi
-  if [ -f $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext ]; then
-    if ! cp $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext $stackw_program; then
-      stackw_error_exit "Failed to setup \`$stackw_program'"
-    fi
-  fi
-  if ! chmod u+x $stackw_program; then
-    stackw_error_exit "Failed access \`$stackw_program'"
-  fi
-  touch $stackw_extract_dir/$stackw_basename.done
-fi
+stackw_program=$stackw_programs_dir/$stackw_basename/stack$stackw_exeext
 
 if [ "$1" = "stackw-upgrade" ]; then
-  stackw_new_script=$stackw_download_dir/stackw.$$
+  mkdir -p $stackw_tmp_dir
+  stackw_new_script=$stackw_tmp_dir/stackw.$$
   for stackw_script_ext in "" .bat; do
     stack_script=$0$stackw_script_ext
     if [ ! -e $stack_script ]; then
       echo "skip \`$stack_script'"
       continue
     fi
-    if ! stackw_download $stackw_script_url$stackw_script_ext $stackw_new_script$stackw_script_ext; then
+    stackw_script_url=$stackw_script_base_url/stackw$stackw_script_ext
+    if ! stackw_download $stackw_script_url $stackw_new_script$stackw_script_ext; then
       stackw_error_exit "Failed to extract \`$stackw_script_url$stackw_script_ext'"
     fi
     if cmp $stackw_new_script$stackw_script_ext $stack_script > /dev/null; then
@@ -519,6 +470,56 @@ if [ "$1" = "stackw-upgrade" ]; then
     fi
   done
   exit 0
+fi
+
+if [ ! -f "$stackw_programs_dir/$stackw_basename.done" ]; then
+  stackw_url="$stackw_base_url/v$stackw_version/$stackw_basename$stackw_ext"
+  mkdir -p $stackw_programs_dir
+  stackw_download_file="$stackw_programs_dir/$stackw_basename$stackw_ext"
+  if ! stackw_download $stackw_url $stackw_download_file; then
+    stackw_error_exit "Not found \`$stackw_url'"
+  fi
+  if $stackw_single_archive; then
+    mkdir -p $stackw_programs_dir/$stackw_basename
+    if [ "$stackw_ext" = ".gz" ]; then
+      if ! gzip -cd $stackw_download_file > $stackw_programs_dir/$stackw_basename/stack; then
+        stackw_error_exit "Failed to extract \`$stackw_download_file'"
+      fi
+    elif [ "$stackw_ext" = ".tar.gz" ]; then
+      if ! (cd $stackw_programs_dir/$stackw_basename && (gzip -cd $stackw_download_file | tar xf -)); then
+        stackw_error_exit "Failed to extract \`$stackw_download_file'"
+      fi
+    else
+      stackw_error_exit "Unknown extension \`$stackw_ext'"
+    fi
+  elif [ "$stackw_ext" = ".zip" ]; then
+    mkdir -p $stackw_programs_dir/$stackw_basename
+    if ! (cd $stackw_programs_dir/$stackw_basename && unzip $stackw_download_file); then
+      stackw_error_exit "Failed to extract \`$stackw_download_file'"
+    fi
+  else
+    if [ "$stackw_ext" = ".tar.gz" ]; then
+      stackw_extract() (gzip -cd "$@")
+    elif [ "$stackw_ext" = ".tar.bz2" ]; then
+      stackw_extract() (bzip2 -cd "$@")
+    elif [ "$stackw_ext" = ".tar.xz" ]; then
+      stackw_extract() (xz -cd "$@")
+    else
+      stackw_error_exit "Unknown extension \`$stackw_ext'"
+    fi
+    if ! (cd $stackw_programs_dir && (stackw_extract $stackw_download_file | tar xf -)); then
+      stackw_error_exit "Failed to extract \`$stackw_download_file'"
+    fi
+  fi
+  if [ -f $stackw_programs_dir/$stackw_basename/$stackw_basename$stackw_exeext ]; then
+    if ! cp $stackw_programs_dir/$stackw_basename/$stackw_basename$stackw_exeext $stackw_program; then
+      stackw_error_exit "Failed to setup \`$stackw_program'"
+    fi
+  fi
+  if ! chmod u+x $stackw_program; then
+    stackw_error_exit "Failed access \`$stackw_program'"
+  fi
+  touch $stackw_programs_dir/$stackw_basename.done
 fi
 
 exec $stackw_program "$@"

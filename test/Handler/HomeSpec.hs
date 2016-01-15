@@ -21,7 +21,6 @@ spec = withApp $ do
         htmlCount ".message" 1
         htmlAllContain ".message" "Some Content"
         htmlAllContain ".message" "text/plain"
-        -- printBody
 
     -- This is a simple example of using a database access in a test.  The
     -- test will succeed for a fresh scaffolded site with an empty database,
@@ -31,8 +30,3 @@ spec = withApp $ do
         statusIs 200
         users <- runDB $ selectList ([] :: [Filter User]) []
         assertEqual "user table empty" 0 $ length users
-
-    it "has also JSON response!" $ do
-        get HomeJsonR
-        statusIs 200
-        printBody

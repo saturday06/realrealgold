@@ -1,6 +1,5 @@
 machine:
   environment:
-    GHC_VERSION: 7.10.3
     MYSQL_DATABASE: circle_test
     MYSQL_HOST: localhost
     MYSQL_PASSWORD:
@@ -14,15 +13,9 @@ dependencies:
     - "~/.stack"
     - ".stack-work"
 
-  pre:
-    - rm Gemfile # disable ruby installation
-
   override:
     - |
-      if [ "`./stackw ghc -- --numeric-version`" != "$GHC_VERSION" ]; then
-        ./stackw setup $GHC_VERSION
-      fi
-      ./stackw test --only-dependencies
+      ./stackw test --only-dependencies --install-ghc
 
 test:
   override:

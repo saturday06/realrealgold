@@ -8,12 +8,14 @@
 
 stackw_default_stack_version=1.0.0
 
-uname_s=`uname -s`
-uname_m=`uname -m`
+stackw_version=1
+stackw_uname_s=`uname -s`
+stackw_uname_m=`uname -m`
 stackw_base_url="https://github.com/commercialhaskell/stack/releases/download"
 stackw_base_dir=$HOME/.stack/wrapper
 stackw_download_dir=$stackw_base_dir/cache
 stackw_extract_dir=$stackw_base_dir/extract
+stackw_script_url="https://raw.githubusercontent.com/saturday06/stackw/stable/stackw"
 
 stackw_error_exit() {
   echo Error: $* >&2
@@ -25,11 +27,13 @@ stackw_has_command() {
 }
 
 stackw_download() {
-  rm -f $2
+  url=$1
+  output=$2
+  rm -f $output
   if stackw_has_command wget; then
-    wget --output-document=$2 $1
+    wget --output-document=$output $url
   elif stackw_has_command curl; then
-    curl --location --fail --output $2 $1
+    curl --location --fail --output $output $url
   else
     stackw_error_exit "\`curl' or \`wget' required"
   fi
@@ -38,9 +42,6 @@ stackw_download() {
 stackw_parse_stack_yaml_option() {
   while [ "$1" != "" ]; do
     if [ "$1" = "--stack-yaml" ]; then
-      if [ -z "$2" ]; then
-        stackw_error_exit "\`--stack-yaml' option requires argument"
-      fi
       echo $2
       return 0
     fi
@@ -63,31 +64,244 @@ stackw_find_ancestor_dir_stack_yaml() (
 )
 
 stackw_right_is_greater() (
+  # http://php.net/manual/en/function.version-compare.php
   $STACKW_NAWK '
-    function compare_version(left, right,    i, left_values_length, right_values_length) {
-      left_values_length = split(left, left_values, ".")
-      right_values_length = split(right, right_values, ".")
-      for (i = 1; ; i++) {
-        if (left_values_length < i && right_values_length < i) {
-          return 0
-        } else if (left_values_length < i) {
-          return -1
-        } else if (right_values_length < i) {
-          return 1
-        } else if (left_values[i] + 0 < right_values[i] + 0) {
-          return -1
-        } else if (left_values[i] + 0 > right_values[i] + 0) {
-          return 1
+    function normalize_version(version,    i) {
+      printf("normalize_version: %s\n", version)
+      gsub(/^[._+-]+/, "", version)
+      normalized_version = ""
+      for (i = 1; version != ""; i++) {
+        printf("  %d th loop version=%s normalized_version=%s\n", i, version, normalized_version)
+        gsub(/^\.+/, "", version)
+        if (match(version, /^[0-9]+/)) {
+          value = substr(version, 0, RLENGTH)
+          version = substr(version, RLENGTH + 1)
+          normalized_version = normalized_version "." value
+          continue
+        }
+        if (match(version, /^[^.0-9]+/)) {
+          value = substr(version, 0, RLENGTH)
+          version = substr(version, RLENGTH + 1)
+          if (value == "a") {
+            value = "alpha"
+          } else if (value == "b") {
+            value = "beta"
+          } else if (value == "RC") {
+            value = "rc"
+          } else if (value == "p") {
+            value = "pl"
+          }
+          normalized_version = normalized_version "." value
+          continue
         }
       }
+      return substr(normalized_version, 2)
     }
-    BEGIN {
-      if (compare_version(ARGV[1], ARGV[2]) < 0) {
-        exit 0
+
+    function compare_symbol(left, right, symbol) {
+      if (left == right) {
+        return 0
+      } else if (left == symbol) {
+        return 1
+      } else if (right == symbol) {
+        return -1
       } else {
+        return 0
+      }
+    }
+
+    function ord(str,    ords, i, c) {
+      c = substr(str, 1, 1);
+      for (i = 0; i < 256; i++) {
+        if (c == sprintf("%c", i)) {
+          return i
+        }
+      }
+      return 0
+    }
+
+    function compare_string(left, right,    i) {
+      printf("compare_string: %s %s\n", left, right)
+      for (i = 1; ; i++) {
+        if (length(left) < i && length(right) < i) {
+          return 0
+        } else if (length(left) < i) {
+          return -1
+        } else if (length(right) < i) {
+          return 1
+        }
+        ord_r = ord(substr(right, 1))
+        ord_l = ord(substr(left, 1))
+        printf("ordr=%d ordl=%d\n", ord_r, ord_l)
+        if (ord_r < ord_l) {
+          return 1
+        } else if (ord_r > ord_l) {
+          return -1
+        }
+      }
+      return 0
+    }
+
+    function is_number_string(str) {
+      return (str "") ~ /^[0-9]+$/
+    }
+
+    function compare_number(left, right) {
+      printf("compare_number: %s %s\n", left, right)
+      if (!is_number_string(left) && !is_number_string(right)) {
+        return 0
+      } else if (!is_number_string(left)) {
+        return -1
+      } else if (!is_number_string(right)) {
+        return 1
+      }
+      left = left + 0
+      right = right + 0
+      if (left > right) {
+        return 1;
+      } else if (left < right) {
+        return -1;
+      } else {
+        return 0;
+      }
+    }
+
+    function compare_version_element(left, right,      i, comparison) {
+      printf("=====================================\n")
+      printf("version element %s <=> %s\n", left, right)
+      comparison_length = 0
+      comparison[++comparison_length] = compare_symbol(left, right, "pl")
+      comparison[++comparison_length] = compare_number(left, right)
+      comparison[++comparison_length] = compare_symbol(left, right, "rc")
+      comparison[++comparison_length] = compare_symbol(left, right, "beta")
+      comparison[++comparison_length] = compare_symbol(left, right, "alpha")
+      comparison[++comparison_length] = compare_symbol(left, right, "dev")
+      comparison[++comparison_length] = compare_string(left, right)
+      for (i = 1; i <= comparison_length; i++) {
+        printf("comparison (%d/%d) %d\n", i, length(comparison), comparison[i])
+      }
+      for (i = 1; i <= comparison_length; i++) {
+        if (comparison[i] != 0) {
+          printf("compare_version_element => %d\n", comparison[i])
+          return comparison[i]
+        }
+      }
+      printf("compare_version_element => SAME\n")
+      return 0
+    }
+
+    function compare_version(left, right,    i, result, left_values, right_values) {
+      printf("compare_version %s %s\n", left, right);
+      left = normalize_version(left)
+      right = normalize_version(right)
+      printf("=> compare_version %s %s\n", left, right);
+      split(left, left_values, /\./)
+      split(right, right_values, /\./)
+      for (i = 1; length(left_values) >= i || length(right_values) >= i; i++) {
+        printf("===== %d th loop =====\n", i);
+        if (length(left_values) < i) {
+          left_value = 0
+        } else {
+          left_value = left_values[i]
+        }
+        if (length(right_values) < i) {
+          right_value = 0
+        } else {
+          right_value = right_values[i]
+        }
+        result = compare_version_element(left_value, right_value)
+        if (result != 0) {
+          return result;
+        }
+      }
+      return 0
+    }
+
+    function right_is_greater(left, right) {
+      if (compare_version(left, right) < 0) {
+        return 1
+      } else {
+        return 0
+      }
+    }
+
+    function assert_equal(left, right) {
+      if (left != right) {
+        printf("ASSERT %s != %s\n", left, right) > "/dev/stderr"
         exit 1
       }
-    }' $*
+    }
+
+    function selftest() {
+      assert_equal(is_number_string("12345"), 1)
+      assert_equal(is_number_string("a"), 0)
+      assert_equal(is_number_string("12a45"), 0)
+
+      assert_equal(ord("a"), 97)
+      assert_equal(ord("b"), 98)
+
+      assert_equal(normalize_version(1), "1")
+      assert_equal(normalize_version("10"), "10")
+      assert_equal(normalize_version("10a"), "10.alpha")
+      assert_equal(normalize_version("10a1"), "10.alpha.1")
+      assert_equal(normalize_version("a1b23c"), "alpha.1.beta.23.c")
+      assert_equal(normalize_version("123...dev"), "123.dev")
+      assert_equal(normalize_version("devalphadev"), "devalphadev")
+
+      assert_equal(compare_symbol("foo", "foo", "foo"), 0)
+      assert_equal(compare_symbol("foo", "bar", "foo"), 1)
+      assert_equal(compare_symbol("fooa", "bar", "foo"), 0)
+      assert_equal(compare_symbol("bar", "foo", "foo"), -1)
+      assert_equal(compare_symbol("bar", "fooa", "foo"), 0)
+      assert_equal(compare_symbol("foo", "foo", "baz"), 0)
+
+      assert_equal(compare_string("alpha", "alpha"), 0)
+      assert_equal(compare_string("beta", "alpha"), 1)
+      assert_equal(compare_string("alpha", "beta"), -1)
+      assert_equal(compare_string("aaab", "aaa"), 1)
+      assert_equal(compare_string("aaa", "aaab"), -1)
+
+      assert_equal(compare_number("a", "b"), 0)
+      assert_equal(compare_number("1", "b"), 1)
+      assert_equal(compare_number("c", "1"), -1)
+      assert_equal(compare_number("123", "9"), 1)
+      assert_equal(compare_number("123", "123"), 0)
+      assert_equal(compare_number("123", "124"), -1)
+
+      assert_equal(compare_version_element("pl", "pl"),  0)
+      assert_equal(compare_version_element("pl", "0"),   1)
+      assert_equal(compare_version_element("pl", "rc"),  1)
+      assert_equal(compare_version_element("pl", "foo"), 1)
+      assert_equal(compare_version_element("0", "pl"),   -1)
+      assert_equal(compare_version_element("rc", "pl"),  -1)
+      assert_equal(compare_version_element("foo", "pl"), -1)
+      assert_equal(compare_version_element("rc", "pl"),  -1)
+      assert_equal(compare_version_element("rc", "0"),   -1)
+      assert_equal(compare_version_element("rc", "rc"),  0)
+      assert_equal(compare_version_element("rc", "foo"), 1)
+      assert_equal(compare_version_element("0", "rc"),   1)
+      assert_equal(compare_version_element("foo", "rc"), -1)
+
+      assert_equal(compare_version("1rc", "1pl"),  -1)
+      assert_equal(compare_version("0", "1"),  -1)
+      assert_equal(compare_version("1.0pl1", "1.0"),  1)
+      assert_equal(compare_version("0.3", "0.3"),  0)
+
+      assert_equal(right_is_greater("1rc", "1pl"), 1)
+      assert_equal(right_is_greater("0", "1"), 1)
+      assert_equal(right_is_greater("1.0pl1", "1.0"), 0)
+      assert_equal(right_is_greater("0.3", "0.3"), 0)
+
+      return 0;
+    }
+
+    BEGIN {
+      if (ARGV[3] == "selftest") {
+        exit(selftest())
+      } else {
+        exit(!right_is_greater(ARGV[1], ARGV[2]))
+      }
+    }' $* > /dev/null
 )
 
 if [ -z "$STACKW_EGREP" ]; then
@@ -113,30 +327,60 @@ if [ -z "$STACKW_NAWK" ]; then
   fi
 fi
 
-stackw_yaml=`stackw_parse_stack_yaml_option "$@"`
-if [ $? -eq 1 ]; then
+stackw_detect_stack_version() {
+  stackw_yaml=`stackw_parse_stack_yaml_option "$@"`
+  if [ -z "$stackw_yaml" ]; then
+    stackw_yaml=$STACK_YAML
+  fi
+  if [ -z "$stackw_yaml" ]; then
+    stackw_yaml=`stackw_find_ancestor_dir_stack_yaml`
+  fi
+  if [ -z "$stackw_yaml" ]; then
+    echo $stackw_default_stack_version
+    return 0
+  fi
+  if [ ! -f "$stackw_yaml" ]; then
+    echo $stackw_default_stack_version
+    return 0
+  fi
+  stackw_version=`(cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//') 2> /dev/null`
+  if [ -z "$stackw_version" ]; then
+    echo $stackw_default_stack_version
+    return 0
+  fi
+  echo $stackw_version
+}
+
+stackw_selftest() {
+  stackw_right_is_greater 0 0 selftest
+
+  stackw_right_is_greater 0 pl       ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 0 rc       ; [ $? -ne 1 ] && failure
+  stackw_right_is_greater 0 0        ; [ $? -ne 1 ] && failure
+  stackw_right_is_greater 0 1        ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 0.0 0pl    ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 0 0.0      ; [ $? -ne 1 ] && failure
+  stackw_right_is_greater 0 1        ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 1 1        ; [ $? -ne 1 ] && failure
+  stackw_right_is_greater 2 1.0      ; [ $? -ne 1 ] && failure
+  stackw_right_is_greater 2.0 2.1    ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 2.0 2.0pl1  ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 2.0pl0 2.0pl1  ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 2.0pl0 2.0pl.1  ; [ $? -ne 0 ] && failure
+  stackw_right_is_greater 2.0pl.0 2.0pl1  ; [ $? -ne 0 ] && failure
+}
+
+if [ "$1" = "stackw-selftest" ]; then
+  stackw_selftest
+  exit 0
+fi
+
+stackw_version=`stackw_detect_stack_version "$@"`
+if [ $? -ne 0 ]; then
   exit 1
 fi
-if [ -z "$stackw_yaml" ]; then
-  stackw_yaml=$STACK_YAML
-fi
-if [ -z "$stackw_yaml" ]; then
-  stackw_yaml=`stackw_find_ancestor_dir_stack_yaml`
-fi
-if [ -z "$stackw_yaml" ]; then
-  stackw_error_exit "Configuration file \`stack.yaml' not found"
-fi
 
-if [ ! -f "$stackw_yaml" ]; then
-  stackw_error_exit "Configuration file \`$stackw_yaml' not found"
-fi
-
-stackw_version=`(cat $stackw_yaml | grep "^# stack version:" | sed 's/^# stack version: *//') 2> /dev/null`
-if [ -z "$stackw_version" ]; then
-  stackw_version=$stackw_default_stack_version
-fi
-
-case "$uname_m" in
+case "$stackw_uname_m" in
   x86_64)
     stackw_machine=x86_64
   ;;
@@ -144,11 +388,11 @@ case "$uname_m" in
     stackw_machine=i386
   ;;
   *)
-    stackw_error_exit "Unsupported machine \`$uname_m'"
+    stackw_error_exit "Unsupported machine \`$stackw_uname_m'"
   ;;
 esac
 
-case "$uname_s" in
+case "$stackw_uname_s" in
   Linux)
     stackw_egrep_ldconfig() {
       ldconfig --print-cache | $STACKW_NAWK '{print $1}' | $STACKW_EGREP "$1" 2> /dev/null > /dev/null
@@ -167,7 +411,7 @@ case "$uname_s" in
     stackw_system=windows
   ;;
   *)
-    stackw_error_exit "Unsupported system \`$uname_s'"
+    stackw_error_exit "Unsupported system \`$stackw_uname_s'"
   ;;
 esac
 
@@ -241,7 +485,7 @@ if [ ! -f "$stackw_extract_dir/$stackw_basename.done" ]; then
     fi
   fi
   if [ -f $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext ]; then
-    if ! mv $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext $stackw_program; then
+    if ! cp $stackw_extract_dir/$stackw_basename/$stackw_basename$stackw_exeext $stackw_program; then
       stackw_error_exit "Failed to setup \`$stackw_program'"
     fi
   fi
@@ -253,12 +497,15 @@ fi
 
 if [ "$1" = "stackw-upgrade" ]; then
   stackw_new_script=$stackw_download_dir/stackw.$$
-  stackw_script_url=https://raw.githubusercontent.com/saturday06/stackw/stable/stackw
   for stackw_script_ext in "" .bat; do
+    stack_script=$0$stackw_script_ext
+    if [ ! -e $stack_script ]; then
+      echo "skip \`$stack_script'"
+      continue
+    fi
     if ! stackw_download $stackw_script_url$stackw_script_ext $stackw_new_script$stackw_script_ext; then
       stackw_error_exit "Failed to extract \`$stackw_script_url$stackw_script_ext'"
     fi
-    stack_script=$0$stackw_script_ext
     if cmp $stackw_new_script$stackw_script_ext $stack_script > /dev/null; then
       echo "\`$stack_script' is already up to date"
       rm -f $stackw_new_script$stackw_script_ext

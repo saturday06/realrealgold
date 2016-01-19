@@ -30,7 +30,7 @@ function temp_path(ext) {
   var temp_folder = filesystem.GetSpecialFolder(2);
   var temp_file;
   while (true) {
-    var name = filesystem.GetTempName() + Math.round((Math.random() * 100)) + ext;
+    var name = filesystem.GetTempName() + Math.round(Math.random() * 100) + ext;
     temp_file = filesystem.BuildPath(temp_folder, name);
     if (!filesystem.FileExists(temp_file)) {
       break;
@@ -54,7 +54,7 @@ function execute_powershell(args, script) {
   }
   var exec = shell.Exec('%COMSPEC% /c powershell -ExecutionPolicy RemoteSigned -File "' + temp_file + '" ' + arg_str + ' 2>&1');
   write_stderr(exec.StdOut.ReadAll());
-  while (exec.Status == 0) {
+  while (!exec.Status) {
     WScript.Sleep(100);
   }
   if (exec.ExitCode != 0) {
@@ -72,7 +72,7 @@ function parse_stack_yaml_option() {
       return args(i + 1) + "";
     }
   }
-  return false
+  return false;
 }
 
 function find_ancestor_dir_stack_yaml() {
@@ -139,16 +139,13 @@ function normalize_version(version) {
     var stringMatch = version.match(/^[^.0-9]+/);
     if (stringMatch) {
       var value = version.substring(0, stringMatch[0].length);
+      value = {
+        "a": "alpha",
+        "b": "beta",
+        "RC": "rc",
+        "p": "pl"
+      }[value] || value;
       version = version.substring(stringMatch[0].length);
-      if (value == "a") {
-        value = "alpha";
-      } else if (value == "b") {
-        value = "beta";
-      } else if (value == "RC") {
-        value = "rc";
-      } else if (value == "p") {
-        value = "pl";
-      }
       normalized_version = normalized_version + "." + value;
       continue;
     }
@@ -184,11 +181,11 @@ function is_integer_string(str) {
 
 function compare_integer(left, right) {
   if (!is_integer_string(left) && !is_integer_string(right)) {
-    return 0
+    return 0;
   } else if (!is_integer_string(left)) {
-    return -1
+    return -1;
   } else if (!is_integer_string(right)) {
-    return 1
+    return 1;
   }
   left = parseInt(left, 10);
   right = parseInt(right, 10);
@@ -216,7 +213,7 @@ function compare_version_element(left, right) {
       return comparison[i];
     }
   }
-  return 0
+  return 0;
 }
 
 function compare_version(left, right) {
@@ -314,61 +311,61 @@ function assert_equal(left, right) {
 }
 
 function selftest() {
-  assert_equal(is_integer_string("12345"), 1)
-  assert_equal(is_integer_string("a"), 0)
-  assert_equal(is_integer_string("12a45"), 0)
+  assert_equal(is_integer_string("12345"), 1);
+  assert_equal(is_integer_string("a"), 0);
+  assert_equal(is_integer_string("12a45"), 0);
 
-  assert_equal(normalize_version(1), "1")
-  assert_equal(normalize_version("10"), "10")
-  assert_equal(normalize_version("10a"), "10.alpha")
-  assert_equal(normalize_version("10a1"), "10.alpha.1")
-  assert_equal(normalize_version("a1b23c"), "alpha.1.beta.23.c")
-  assert_equal(normalize_version("123...dev"), "123.dev")
-  assert_equal(normalize_version("devalphadev"), "devalphadev")
+  assert_equal(normalize_version(1), "1");
+  assert_equal(normalize_version("10"), "10");
+  assert_equal(normalize_version("10a"), "10.alpha");
+  assert_equal(normalize_version("10a1"), "10.alpha.1");
+  assert_equal(normalize_version("a1b23c"), "alpha.1.beta.23.c");
+  assert_equal(normalize_version("123...dev"), "123.dev");
+  assert_equal(normalize_version("devalphadev"), "devalphadev");
 
-  assert_equal(compare_symbol("foo", "foo", "foo"), 0)
-  assert_equal(compare_symbol("foo", "bar", "foo"), 1)
-  assert_equal(compare_symbol("fooa", "bar", "foo"), 0)
-  assert_equal(compare_symbol("bar", "foo", "foo"), -1)
-  assert_equal(compare_symbol("bar", "fooa", "foo"), 0)
-  assert_equal(compare_symbol("foo", "foo", "baz"), 0)
+  assert_equal(compare_symbol("foo", "foo", "foo"), 0);
+  assert_equal(compare_symbol("foo", "bar", "foo"), 1);
+  assert_equal(compare_symbol("fooa", "bar", "foo"), 0);
+  assert_equal(compare_symbol("bar", "foo", "foo"), -1);
+  assert_equal(compare_symbol("bar", "fooa", "foo"), 0);
+  assert_equal(compare_symbol("foo", "foo", "baz"), 0);
 
-  assert_equal(compare_string("alpha", "alpha"), 0)
-  assert_equal(compare_string("beta", "alpha"), 1)
-  assert_equal(compare_string("alpha", "beta"), -1)
-  assert_equal(compare_string("aaab", "aaa"), 1)
-  assert_equal(compare_string("aaa", "aaab"), -1)
+  assert_equal(compare_string("alpha", "alpha"), 0);
+  assert_equal(compare_string("beta", "alpha"), 1);
+  assert_equal(compare_string("alpha", "beta"), -1);
+  assert_equal(compare_string("aaab", "aaa"), 1);
+  assert_equal(compare_string("aaa", "aaab"), -1);
 
-  assert_equal(compare_integer("a", "b"), 0)
-  assert_equal(compare_integer("1", "b"), 1)
-  assert_equal(compare_integer("c", "1"), -1)
-  assert_equal(compare_integer("123", "9"), 1)
-  assert_equal(compare_integer("123", "123"), 0)
-  assert_equal(compare_integer("123", "124"), -1)
+  assert_equal(compare_integer("a", "b"), 0);
+  assert_equal(compare_integer("1", "b"), 1);
+  assert_equal(compare_integer("c", "1"), -1);
+  assert_equal(compare_integer("123", "9"), 1);
+  assert_equal(compare_integer("123", "123"), 0);
+  assert_equal(compare_integer("123", "124"), -1);
 
-  assert_equal(compare_version_element("pl", "pl"),  0)
-  assert_equal(compare_version_element("pl", "0"),   1)
-  assert_equal(compare_version_element("pl", "rc"),  1)
-  assert_equal(compare_version_element("pl", "foo"), 1)
-  assert_equal(compare_version_element("0", "pl"),   -1)
-  assert_equal(compare_version_element("rc", "pl"),  -1)
-  assert_equal(compare_version_element("foo", "pl"), -1)
-  assert_equal(compare_version_element("rc", "pl"),  -1)
-  assert_equal(compare_version_element("rc", "0"),   -1)
-  assert_equal(compare_version_element("rc", "rc"),  0)
-  assert_equal(compare_version_element("rc", "foo"), 1)
-  assert_equal(compare_version_element("0", "rc"),   1)
-  assert_equal(compare_version_element("foo", "rc"), -1)
+  assert_equal(compare_version_element("pl", "pl"),  0);
+  assert_equal(compare_version_element("pl", "0"),   1);
+  assert_equal(compare_version_element("pl", "rc"),  1);
+  assert_equal(compare_version_element("pl", "foo"), 1);
+  assert_equal(compare_version_element("0", "pl"),   -1);
+  assert_equal(compare_version_element("rc", "pl"),  -1);
+  assert_equal(compare_version_element("foo", "pl"), -1);
+  assert_equal(compare_version_element("rc", "pl"),  -1);
+  assert_equal(compare_version_element("rc", "0"),   -1);
+  assert_equal(compare_version_element("rc", "rc"),  0);
+  assert_equal(compare_version_element("rc", "foo"), 1);
+  assert_equal(compare_version_element("0", "rc"),   1);
+  assert_equal(compare_version_element("foo", "rc"), -1);
 
-  assert_equal(compare_version("1rc", "1pl"),  -1)
-  assert_equal(compare_version("0", "1"),  -1)
-  assert_equal(compare_version("1.0pl1", "1.0"),  1)
-  assert_equal(compare_version("0.3", "0.3"),  0)
+  assert_equal(compare_version("1rc", "1pl"),  -1);
+  assert_equal(compare_version("0", "1"),  -1);
+  assert_equal(compare_version("1.0pl1", "1.0"),  1);
+  assert_equal(compare_version("0.3", "0.3"),  0);
 
-  assert_equal(right_is_greater("1rc", "1pl"), 1)
-  assert_equal(right_is_greater("0", "1"), 1)
-  assert_equal(right_is_greater("1.0pl1", "1.0"), 0)
-  assert_equal(right_is_greater("0.3", "0.3"), 0)
+  assert_equal(right_is_greater("1rc", "1pl"), 1);
+  assert_equal(right_is_greater("0", "1"), 1);
+  assert_equal(right_is_greater("1.0pl1", "1.0"), 0);
+  assert_equal(right_is_greater("0.3", "0.3"), 0);
 
   return 0;
 }
@@ -409,7 +406,7 @@ if (!filesystem.FolderExists(programs_dir)) {
   filesystem.CreateFolder(programs_dir);
 }
 var extract_dir = filesystem.BuildPath(programs_dir, base_name);
-var zip_file = filesystem.BuildPath(programs_dir, base_name + ".zip")
+var zip_file = filesystem.BuildPath(programs_dir, base_name + ".zip");
 var done_file = filesystem.BuildPath(programs_dir, base_name + ".done");
 var stack_path = filesystem.BuildPath(extract_dir, "stack.exe");
 

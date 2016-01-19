@@ -121,6 +121,43 @@ test-suite test
 
     build-depends: realrealgold
                  , aeson
+                 , bytestring
+                 , case-insensitive
+                 , classy-prelude
+                 , classy-prelude-conduit
+                 , classy-prelude-yesod
+                 , conduit
+                 , containers
+                 , data-default
+                 , directory
+                 , fast-logger
+                 , file-embed
+                 , hjsmin
+                 , http-conduit
+                 , monad-control
+                 , monad-logger
+                 , mysql
+                 , persistent
+                 , persistent-mysql
+                 , persistent-template
+                 , safe
+                 , shakespeare
+                 , template-haskell
+                 , text
+                 , time
+                 , unordered-containers
+                 , vector
+                 , wai
+                 , wai-extra
+                 , wai-logger
+                 , warp
+                 , yaml
+                 , yesod
+                 , yesod-auth
+                 , yesod-core
+                 , yesod-form
+                 , yesod-static
+                 , aeson
                  , base
                  , classy-prelude
                  , classy-prelude-yesod
@@ -132,5 +169,6 @@ test-suite test
                  , shakespeare
                  , transformers
                  , yesod
+                 , yesod-static
                  , yesod-core
                  , yesod-test

@@ -13,11 +13,26 @@ general:
 dependencies:
   cache_directories:
     - "~/.stack"
+    - "~/usr"
     - ".stack-work"
   pre:
     - sudo apt-get update; sudo apt-get install libgmp-dev
   override:
-    - ./stackw test --only-dependencies --install-ghc
+    - |
+      if [ ! -d ~/usr/include ]; then
+        GLIBC=glibc-2.23
+        wget http://ftp.gnu.org/gnu/glibc/$GLIBC.tar.xz
+        tar xf $GLIBC.tar.xz
+        cd $GLIBC
+        mkdir build
+        cd build
+        CFLAGS=-O3 ../configure --prefix=$HOME/usr --enable-static-nss \
+          && make \
+          && make install
+        cd ../..
+      fi
+
+      ./stackw test --only-dependencies --install-ghc
 
 test:
   override:
@@ -25,8 +40,8 @@ test:
     - cp config/circleci-settings.yml config/test-settings.yml
     - ./stackw test
 
-deployment:
-  production:
-    branch: master
-    heroku:
-      appname: realrealgold
+-- deployment:
+--  production:
+--    branch: master
+--    heroku:
+--      appname: realrealgold

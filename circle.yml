@@ -19,7 +19,7 @@ dependencies:
     - sudo apt-get update; sudo apt-get install libgmp-dev
   override:
     - |
-      if [ ! -d ~/usr/include ]; then
+      if [ ! -f ~/usr/include/stdio.h ]; then
         GLIBC=glibc-2.23
         wget http://ftp.gnu.org/gnu/glibc/$GLIBC.tar.xz
         tar xf $GLIBC.tar.xz
@@ -31,17 +31,23 @@ dependencies:
           && make install
         cd ../..
       fi
-
+      export C_INCLUDE_PATH=$HOME/include
+      export CPLUS_INCLUDE_PATH=$HOME/include
+      export LIBRARY_PATH=$HOME/lib:$HOME/lib64
       ./stackw test --only-dependencies --install-ghc
 
 test:
   override:
-    - ./stackw install
-    - cp config/circleci-settings.yml config/test-settings.yml
-    - ./stackw test
+    - |
+      export C_INCLUDE_PATH=$HOME/include
+      export CPLUS_INCLUDE_PATH=$HOME/include
+      export LIBRARY_PATH=$HOME/lib:$HOME/lib64
+      ./stackw install
+      cp config/circleci-settings.yml config/test-settings.yml
+      ./stackw test
 
--- deployment:
---  production:
---    branch: master
---    heroku:
---      appname: realrealgold
+# deployment:
+#   production:
+#     branch: master
+#     heroku:
+#       appname: realrealgold

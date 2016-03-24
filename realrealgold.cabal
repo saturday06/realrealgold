@@ -95,9 +95,9 @@ executable         realrealgold
     build-depends:     base, realrealgold
 
     if flag(dev) || flag(library-only)
-        ghc-options:   -threaded -rtsopts -with-rtsopts=-N
+        ghc-options:   -threaded
     else
-        ghc-options:   -threaded -rtsopts -with-rtsopts=-N -optl-static -optl-pthread
+        ghc-options:   -threaded -optl-static -optl-pthread
 
 test-suite test
     type:              exitcode-stdio-1.0

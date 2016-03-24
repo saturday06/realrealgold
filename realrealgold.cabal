@@ -93,11 +93,12 @@ executable         realrealgold
     main-is:           main.hs
     hs-source-dirs:    app
     build-depends:     base, realrealgold
+    extra-libraries:   stdc++
 
     if flag(dev) || flag(library-only)
-        ghc-options:   -threaded
+        ghc-options: -threaded
     else
-        ghc-options:   -threaded -optl-static -optl-pthread
+        ghc-options: -threaded -optl-static -optl-pthread -no-auto-link-packages
 
 test-suite test
     type:              exitcode-stdio-1.0

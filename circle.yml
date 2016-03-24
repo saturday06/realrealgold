@@ -31,9 +31,10 @@ dependencies:
           && make install
         cd ../..
       fi
-      export C_INCLUDE_PATH=$HOME/include
-      export CPLUS_INCLUDE_PATH=$HOME/include
-      export LIBRARY_PATH=$HOME/lib:$HOME/lib64
+      find ~/usr
+      export C_INCLUDE_PATH=$HOME/usr/include
+      export CPLUS_INCLUDE_PATH=$HOME/usr/include
+      export LIBRARY_PATH=$HOME/usr/lib:$HOME/usr/lib64
       ./stackw test --only-dependencies --install-ghc
 
 test:

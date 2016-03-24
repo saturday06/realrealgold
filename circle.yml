@@ -26,7 +26,7 @@ dependencies:
         cd $GLIBC
         mkdir build
         cd build
-        CFLAGS=-O3 ../configure --prefix=$HOME/usr --enable-static-nss \
+        CFLAGS=-O3 ../configure --prefix=$HOME/usr --enable-static-nss --disable-werror \
           && make \
           && make install
         cd ../..

@@ -5,8 +5,6 @@ machine:
     MYSQL_PASSWORD:
     MYSQL_PORT: 3306
     MYSQL_USER: ubuntu
-  java:
-    version: openjdk7
 
 general:
   artifacts:

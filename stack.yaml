@@ -5,3 +5,5 @@ packages:
 - '.'
 extra-deps: []
 resolver: lts-5.9
+ghc-options:
+  "*": -optP-nostdinc -optP-I/usr/static-nss-glibc/include -optl-nodefaultlibs -optl-L/usr/static-nss-glibc/lib -lc -lgcc

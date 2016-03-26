@@ -96,7 +96,7 @@ executable         realrealgold
     extra-libraries:   stdc++
 
     if flag(dev) || flag(library-only)
-        ghc-options: -threaded
+        ghc-options: -threaded -no-auto-link-packages
     else
         ghc-options: -threaded -optl-static -optl-pthread -no-auto-link-packages
 

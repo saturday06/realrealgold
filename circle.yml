@@ -13,28 +13,25 @@ general:
 dependencies:
   cache_directories:
     - "~/.stack"
-    - "~/usr"
+    - "~/usr/static-nss-glibc"
     - ".stack-work"
   pre:
     - sudo apt-get update; sudo apt-get install libgmp-dev
   override:
     - |
-      if [ ! -f ~/usr/include/stdio.h ]; then
+      if [ ! -f ~/usr/static-nss-glibc/include/stdio.h ]; then
         GLIBC=glibc-2.23
         wget http://ftp.gnu.org/gnu/glibc/$GLIBC.tar.xz
         tar xf $GLIBC.tar.xz
         cd $GLIBC
         mkdir build
         cd build
-        CFLAGS=-O3 ../configure --prefix=$HOME/usr --enable-static-nss --disable-werror \
+        CFLAGS=-O3 ../configure --prefix=$HOME/usr/static-nss-glibc --enable-static-nss --disable-werror \
           && make \
           && make install
         cd ../..
       fi
-      find ~/usr
-      export C_INCLUDE_PATH=$HOME/usr/include
-      export CPLUS_INCLUDE_PATH=$HOME/usr/include
-      export LIBRARY_PATH=$HOME/usr/lib:$HOME/usr/lib64
+      find ~/usr/static-nss-glibc
       ./stackw test --only-dependencies --install-ghc
 
 test:

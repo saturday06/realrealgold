@@ -6,4 +6,4 @@ packages:
 extra-deps: []
 resolver: lts-5.9
 ghc-options:
-  "*": -optP-nostdinc -optP-I~/usr/static-nss-glibc/include -optl-nodefaultlibs -optl-Wl,-rpath=~/usr/static-nss-glibc/lib -optl-L~/usr/static-nss-glibc/lib -lc -lgcc
+  "*": -optP-nostdinc -optP-I/home/ubuntu/usr/static-nss-glibc/include -optl-nodefaultlibs -optl-Wl,-rpath=/home/ubuntu/usr/static-nss-glibc/lib -optl-L/home/ubuntu/usr/static-nss-glibc/lib -lc -lgcc

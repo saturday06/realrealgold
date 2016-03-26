@@ -1,5 +1,6 @@
 machine:
   environment:
+    CFLAGS: -O3 -march=core2
     MYSQL_DATABASE: circle_test
     MYSQL_HOST: localhost
     MYSQL_PASSWORD:
@@ -19,14 +20,14 @@ dependencies:
     - sudo apt-get update; sudo apt-get install libgmp-dev
   override:
     - |
+      set -e
       if [ ! -f ~/usr/static-nss-glibc/include/stdio.h ]; then
-        GLIBC=glibc-2.23
-        wget http://ftp.gnu.org/gnu/glibc/$GLIBC.tar.xz
-        tar xf $GLIBC.tar.xz
-        cd $GLIBC
-        mkdir build
-        cd build
-        CFLAGS=-O3 ../configure --prefix=$HOME/usr/static-nss-glibc --enable-static-nss --disable-werror \
+        glibc=glibc-2.23
+        wget http://ftp.gnu.org/gnu/glibc/$glibc.tar.xz
+        tar xf $glibc.tar.xz
+        mkdir $glibc/build
+        cd $glibc/build
+        ../configure --prefix=$HOME/usr/static-nss-glibc --enable-static-nss --disable-werror \
           && make \
           && make install
         cd ../..
@@ -37,9 +38,7 @@ dependencies:
 test:
   override:
     - |
-      export C_INCLUDE_PATH=$HOME/include
-      export CPLUS_INCLUDE_PATH=$HOME/include
-      export LIBRARY_PATH=$HOME/lib:$HOME/lib64
+      set -e
       ./stackw install
       cp config/circleci-settings.yml config/test-settings.yml
       ./stackw test

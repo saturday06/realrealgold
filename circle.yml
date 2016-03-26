@@ -10,6 +10,7 @@ machine:
 general:
   artifacts:
     - "~/.local/bin"
+    - "~/usr/static-nss-glibc/lib"
 
 dependencies:
   cache_directories:

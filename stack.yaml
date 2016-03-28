@@ -5,5 +5,3 @@ packages:
 - '.'
 extra-deps: []
 resolver: lts-5.9
-ghc-options:
-  "*": -optP-nostdinc -optP-I/home/ubuntu/usr/static-nss-glibc/include -optc-fno-stack-protector -optl-nodefaultlibs -optl-Wl,-rpath=/home/ubuntu/usr/static-nss-glibc/lib -optl-L/home/ubuntu/usr/static-nss-glibc/lib -optl-lc -optl-lrt -optl-lm

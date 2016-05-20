@@ -6,7 +6,7 @@
 # There's great documentation for writing shell script that runs anyware.
 # https://www.gnu.org/savannah-checkouts/gnu/autoconf/manual/autoconf-2.69/html_node/Portable-Shell.html#Portable-Shell
 
-stackw_default_stack_version=1.0.2
+stackw_default_stack_version=1.1.0
 stackw_base_url="https://github.com/commercialhaskell/stack/releases/download"
 stackw_script_base_url="https://raw.githubusercontent.com/saturday06/stackw/stable"
 
@@ -386,7 +386,9 @@ esac
 case "$stackw_uname_s" in
   Linux)
     stackw_egrep_ldconfig() {
-      ldconfig --print-cache | $STACKW_NAWK '{print $1}' | $STACKW_EGREP "$1" 2> /dev/null > /dev/null
+      if stackw_has_command ldconfig; then
+        ldconfig --print-cache | $STACKW_NAWK '{print $1}' | $STACKW_EGREP "$1" 2> /dev/null > /dev/null
+      fi
     }
     if stackw_egrep_ldconfig "^libgmp\.so\.10$"; then
       stackw_linux_gmp=

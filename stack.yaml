@@ -1,7 +1,7 @@
-# stack version: 1.0.4
+# stack version: 1.1.0
 flags: {}
 extra-package-dbs: []
 packages:
 - '.'
 extra-deps: []
-resolver: lts-5.9
+resolver: lts-5.15
